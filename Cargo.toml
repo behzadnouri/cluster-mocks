@@ -1,0 +1,20 @@
+[package]
+name = "cluster-mocks"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = { version = "3.1.5", features = ["cargo", "env"] }
+crossbeam-channel = "0.5"
+itertools = "0.10.5"
+log = "0.4.17"
+rand = "0.7.0"
+rayon = "1.5.3"
+solana-client = { git = "https://github.com/solana-labs/solana", rev = "c1e440acb6c1b0cbbc7625adfebcef2090e4b9f6" }
+solana-logger = { git = "https://github.com/solana-labs/solana", rev = "c1e440acb6c1b0cbbc7625adfebcef2090e4b9f6" }
+solana-sdk = { git = "https://github.com/solana-labs/solana", rev = "c1e440acb6c1b0cbbc7625adfebcef2090e4b9f6" }
+thiserror = "1.0"
+
+[[bin]]
+name = "gossip"
+path = "src/gossip_main.rs"
