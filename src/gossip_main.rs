@@ -63,7 +63,7 @@ fn main() {
             Arg::with_name("run_duration")
                 .long("run-duration")
                 .takes_value(true)
-                .default_value("20")
+                .default_value("60")
                 .help("simulation duration (seconds)"),
         )
         .arg(
@@ -139,32 +139,36 @@ fn main() {
         .into_iter()
         .collect::<Result<Vec<()>, Error>>()
         .unwrap();
-    // Obtain most recent crds table across all nodes.
     let mut nodes: Vec<_> = nodes
         .into_iter()
         .map(RwLock::into_inner)
         .collect::<Result<_, _>>()
         .unwrap();
+    // Consume packets buffered at each node's receiver channel.
     thread_pool.install(|| {
         nodes.par_iter_mut().for_each(|node| {
             node.consume_packets();
         })
     });
+    // Obtain most recent crds table across all nodes.
     let table = get_crds_table(&nodes);
     info!("num crds entries per node: {}", table.len() / nodes.len());
     // For each node compute how fresh its CRDS table is.
     nodes.sort_unstable_by_key(|node| Reverse(node.stake()));
     let active_stake: u64 = nodes.iter().map(|node| node.stake()).sum();
+    println!("node     | stake | rounds | table | crds");
+    println!("------------------------------------------");
     for node in &nodes {
         let node_table = node.table();
         let num_hits = table
             .iter()
             .filter(|(key, ordinal)| node_table.get(key) == Some(ordinal))
             .count();
-        info!(
-            "{} stake: {:.2}%: crds: {}, {}%",
+        println!(
+            "{} | {:.2}% | {:6} | {:5} | {:2}%",
             &format!("{}", node.pubkey())[..8],
             node.stake() as f64 * 100.0 / active_stake as f64,
+            node.num_gossip_rounds(),
             node_table.len(),
             num_hits * 100 / table.len(),
         );

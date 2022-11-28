@@ -22,6 +22,7 @@ use {
 #[derive(Debug)]
 pub struct Node {
     clock: Instant,
+    num_gossip_rounds: usize,
     pubkey: Pubkey,
     stake: u64,
     table: HashMap<CrdsKey, /*ordinal:*/ u64>,
@@ -52,9 +53,8 @@ pub struct Packet {
     ordinal: u64,
 }
 
-// TODO:
-// should let nodes maintain their own view of the cluster?!
-// gossip loop 200ms delay!? listen vs gossip!?
+// TODO: should let nodes maintain their own view of the cluster?!
+// TODO: gossip loop 200ms delay!? listen vs gossip!?
 
 impl Node {
     pub fn stake(&self) -> u64 {
@@ -69,6 +69,10 @@ impl Node {
         &self.table
     }
 
+    pub fn num_gossip_rounds(&self) -> usize {
+        self.num_gossip_rounds
+    }
+
     pub fn run_gossip<R: Rng>(
         &mut self,
         rng: &mut R,
@@ -78,6 +82,7 @@ impl Node {
     ) -> Result<(), Error> {
         let elapsed = self.clock.elapsed();
         self.clock = Instant::now();
+        self.num_gossip_rounds += 1;
         // Drain the channel for incomming packets.
         // Insert new messages into the CRDS table.
         let (mut keys, num_packets, num_outdated) = self.consume_packets();
@@ -125,12 +130,17 @@ impl Node {
             }
         }
         trace!(
-            "{}, {:?}: {}ms, packets: {}, outdated: {}, keys: {}, {}ms",
+            "{}, {:?}: {}ms, packets: {}, outdated: {}, {:.0}%, keys: {}, {}ms",
             &format!("{}", self.pubkey)[..8],
             std::thread::current().id(),
             elapsed.as_millis(),
             num_packets,
             num_outdated,
+            if num_packets == 0 {
+                0.0
+            } else {
+                num_outdated as f64 * 100.0 / num_packets as f64
+            },
             num_keys,
             self.clock.elapsed().as_millis(),
         );
@@ -213,6 +223,7 @@ pub fn make_gossip_cluster(rpc_client: &RpcClient) -> Result<Vec<(Node, Sender<P
             let (sender, receiver) = crossbeam_channel::unbounded();
             let node = Node {
                 clock: now,
+                num_gossip_rounds: 0,
                 stake,
                 pubkey,
                 table: HashMap::default(),
