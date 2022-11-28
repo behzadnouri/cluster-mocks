@@ -1,7 +1,7 @@
 use {
     clap::{crate_description, crate_name, App, Arg},
     cluster_mocks::{
-        gossip::{make_gossip_cluster, Config, CrdsKey, Node, Packet},
+        gossip::{get_crds_table, make_gossip_cluster, Config, Node, Packet},
         Error, Router, API_MAINNET_BETA, API_TESTNET,
     },
     log::info,
@@ -112,7 +112,7 @@ fn main() {
         num_threads: matches.value_of_t("num_threads").unwrap_or(num_cpus::get()),
         run_duration: Duration::from_secs(matches.value_of_t_or_exit("run_duration")),
     };
-    info!("config: {:?}", config);
+    info!("config: {:#?}", config);
     assert!(config.num_threads > 0);
     let nodes = make_gossip_cluster(&rpc_client).unwrap();
     let (nodes, senders): (Vec<_>, Vec<_>) = nodes
@@ -157,13 +157,7 @@ fn main() {
             node
         })
         .collect();
-    let mut table = HashMap::<CrdsKey, /*ordinal:*/ u64>::new();
-    for node in &nodes {
-        for (key, ordinal) in node.table() {
-            let entry = table.entry(*key).or_default();
-            *entry = u64::max(*entry, *ordinal);
-        }
-    }
+    let table = get_crds_table(&nodes);
     info!("num crds entries per node: {}", table.len() / nodes.len());
     // For each node compute how fresh its CRDS table is.
     nodes.sort_unstable_by_key(|node| Reverse(node.stake()));

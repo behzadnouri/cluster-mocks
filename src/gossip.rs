@@ -10,6 +10,7 @@ use {
     },
     solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey},
     std::{
+        borrow::Borrow,
         cmp::Reverse,
         collections::{hash_map::Entry, HashMap, HashSet},
         iter::repeat_with,
@@ -235,4 +236,20 @@ pub fn make_gossip_cluster(rpc_client: &RpcClient) -> Result<Vec<(Node, Sender<P
     info!("active stake:  {}", active_stake);
     info!("cluster stake: {}", cluster_stake);
     Ok(nodes)
+}
+
+/// Returns most recent CRDS table across all nodes.
+pub fn get_crds_table<I, T>(nodes: I) -> HashMap<CrdsKey, /*ordinal:*/ u64>
+where
+    I: IntoIterator<Item = T>,
+    T: Borrow<Node>,
+{
+    let mut out = HashMap::<CrdsKey, /*ordinal:*/ u64>::new();
+    for node in nodes {
+        for (key, ordinal) in node.borrow().table() {
+            let entry = out.entry(*key).or_default();
+            *entry = u64::max(*entry, *ordinal);
+        }
+    }
+    out
 }
