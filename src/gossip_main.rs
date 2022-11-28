@@ -6,14 +6,13 @@ use {
     },
     log::info,
     rand::seq::SliceRandom,
+    rayon::{prelude::*, ThreadPoolBuilder},
     solana_client::rpc_client::RpcClient,
     solana_sdk::pubkey::Pubkey,
     std::{
         cmp::Reverse,
         collections::HashMap,
-        iter::repeat_with,
-        sync::{Arc, RwLock, TryLockError},
-        thread::spawn,
+        sync::{RwLock, TryLockError},
         time::{Duration, Instant},
     },
 };
@@ -109,7 +108,9 @@ fn main() {
         packet_drop_rate: matches.value_of_t_or_exit("packet_drop_rate"),
         num_crds: matches.value_of_t_or_exit("num_crds"),
         refresh_rate: matches.value_of_t_or_exit("refresh_rate"),
-        num_threads: matches.value_of_t("num_threads").unwrap_or(num_cpus::get()),
+        num_threads: matches
+            .value_of_t("num_threads")
+            .unwrap_or_else(|_| num_cpus::get()),
         run_duration: Duration::from_secs(matches.value_of_t_or_exit("run_duration")),
     };
     info!("config: {:#?}", config);
@@ -129,51 +130,43 @@ fn main() {
         .map(|node| (node.pubkey(), node.stake()))
         .collect();
     let nodes: Vec<_> = nodes.into_iter().map(RwLock::new).collect();
-    let nodes = Arc::new(nodes);
-    let router = Arc::new(router);
-    let stakes = Arc::new(stakes);
-    let handles: Vec<_> = repeat_with(|| {
-        let nodes = nodes.clone();
-        let router = router.clone();
-        let stakes = stakes.clone();
-        spawn(move || run_gossip(&config, &nodes, &stakes, &router))
-    })
-    .take(config.num_threads)
-    .collect();
-    info!("started {} threads", handles.len());
-    handles
-        .into_iter()
-        .try_for_each(|handle| handle.join().unwrap())
+    let thread_pool = ThreadPoolBuilder::new()
+        .num_threads(config.num_threads)
+        .build()
         .unwrap();
-    info!("joined threads");
-    // Obtain most recent crds table across all nodes.
-    // TODO: need threadpool here! or do it in the run threads!
-    let mut nodes: Vec<_> = Arc::try_unwrap(nodes)
-        .unwrap()
+    thread_pool
+        .broadcast(|_ctx| run_gossip(&config, &nodes, &stakes, &router))
         .into_iter()
-        .map(|node| {
-            let mut node = node.into_inner().unwrap();
+        .collect::<Result<Vec<()>, Error>>()
+        .unwrap();
+    // Obtain most recent crds table across all nodes.
+    let mut nodes: Vec<_> = nodes
+        .into_iter()
+        .map(RwLock::into_inner)
+        .collect::<Result<_, _>>()
+        .unwrap();
+    thread_pool.install(|| {
+        nodes.par_iter_mut().for_each(|node| {
             node.consume_packets();
-            node
         })
-        .collect();
+    });
     let table = get_crds_table(&nodes);
     info!("num crds entries per node: {}", table.len() / nodes.len());
     // For each node compute how fresh its CRDS table is.
     nodes.sort_unstable_by_key(|node| Reverse(node.stake()));
+    let active_stake: u64 = nodes.iter().map(|node| node.stake()).sum();
     for node in &nodes {
         let node_table = node.table();
         let num_hits = table
             .iter()
             .filter(|(key, ordinal)| node_table.get(key) == Some(ordinal))
             .count();
-        // TODO: also add stake%.
         info!(
-            "{}: crds: {}, {}%, buffered: {}",
+            "{} stake: {:.2}%: crds: {}, {}%",
             &format!("{}", node.pubkey())[..8],
+            node.stake() as f64 * 100.0 / active_stake as f64,
             node_table.len(),
             num_hits * 100 / table.len(),
-            node.num_buffered(),
         );
     }
 }

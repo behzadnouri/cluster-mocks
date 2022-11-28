@@ -69,10 +69,6 @@ impl Node {
         &self.table
     }
 
-    pub fn num_buffered(&self) -> usize {
-        self.receiver.len()
-    }
-
     pub fn run_gossip<R: Rng>(
         &mut self,
         rng: &mut R,
