@@ -536,6 +536,7 @@ dependencies = [
  "crossbeam-channel",
  "itertools",
  "log",
+ "num_cpus",
  "rand 0.7.3",
  "rayon",
  "solana-client",

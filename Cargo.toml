@@ -8,6 +8,7 @@ clap = { version = "3.1.5", features = ["cargo", "env"] }
 crossbeam-channel = "0.5"
 itertools = "0.10.5"
 log = "0.4.17"
+num_cpus = "1.14.0"
 rand = "0.7.0"
 rayon = "1.5.3"
 solana-client = { git = "https://github.com/solana-labs/solana", rev = "c1e440acb6c1b0cbbc7625adfebcef2090e4b9f6" }

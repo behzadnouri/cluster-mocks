@@ -58,7 +58,6 @@ fn main() {
             Arg::with_name("num_threads")
                 .long("num-threads")
                 .takes_value(true)
-                .default_value("12")
                 .help("number of worker threads"),
         )
         .arg(
@@ -110,10 +109,11 @@ fn main() {
         packet_drop_rate: matches.value_of_t_or_exit("packet_drop_rate"),
         num_crds: matches.value_of_t_or_exit("num_crds"),
         refresh_rate: matches.value_of_t_or_exit("refresh_rate"),
-        num_threads: matches.value_of_t_or_exit("num_threads"),
+        num_threads: matches.value_of_t("num_threads").unwrap_or(num_cpus::get()),
         run_duration: Duration::from_secs(matches.value_of_t_or_exit("run_duration")),
     };
     info!("config: {:?}", config);
+    assert!(config.num_threads > 0);
     let nodes = make_gossip_cluster(&rpc_client).unwrap();
     let (nodes, senders): (Vec<_>, Vec<_>) = nodes
         .into_iter()
