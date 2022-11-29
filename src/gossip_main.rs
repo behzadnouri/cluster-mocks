@@ -63,8 +63,8 @@ fn main() {
             Arg::with_name("run_duration")
                 .long("run-duration")
                 .takes_value(true)
-                .default_value("60")
-                .help("simulation duration (seconds)"),
+                .default_value("1")
+                .help("simulation duration (minutes)"),
         )
         .arg(
             Arg::with_name("gossip_push_fanout")
@@ -126,7 +126,7 @@ fn main() {
         num_threads: matches
             .value_of_t("num_threads")
             .unwrap_or_else(|_| num_cpus::get()),
-        run_duration: Duration::from_secs(matches.value_of_t_or_exit("run_duration")),
+        run_duration: Duration::from_secs(matches.value_of_t_or_exit::<u64>("run_duration") * 60),
         warm_up_rounds: matches.value_of_t("warm_up_rounds").unwrap_or(2 * num_crds),
     };
     info!("config: {:#?}", config);
