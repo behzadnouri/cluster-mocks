@@ -46,14 +46,13 @@ pub struct Config {
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct CrdsKey {
-    from: Pubkey,
+    origin: Pubkey,
     index: usize,
 }
 
 #[derive(Clone, Copy)]
 pub struct Packet {
-    from: Pubkey,
-    index: usize,
+    key: CrdsKey,
     ordinal: u64,
 }
 
@@ -95,7 +94,7 @@ impl Node {
             config.refresh_rate as usize + rng.gen_bool(config.refresh_rate % 1.0) as usize;
         for index in repeat_with(|| rng.gen_range(0, config.num_crds)).take(num_refresh) {
             let key = CrdsKey {
-                from: self.pubkey,
+                origin: self.pubkey,
                 index,
             };
             let ordinal = self
@@ -110,7 +109,7 @@ impl Node {
         let keys: Vec<_> = keys
             .into_iter()
             .map(|key| {
-                let stake = stakes.get(&key.from).copied().unwrap_or_default();
+                let stake = stakes.get(&key.origin).copied().unwrap_or_default();
                 (stake, key)
             })
             .sorted_unstable_by_key(|(stake, _)| Reverse(*stake))
@@ -122,8 +121,7 @@ impl Node {
         nodes.shuffle(rng);
         for key in keys {
             let packet = Packet {
-                from: key.from,
-                index: key.index,
+                key,
                 ordinal: self.table[&key],
             };
             for _ in 0..config.gossip_push_fanout {
@@ -164,13 +162,7 @@ impl Node {
         let mut keys = HashSet::<CrdsKey>::new();
         let num_packets = packets.len();
         let mut num_outdated = 0;
-        for Packet {
-            from,
-            index,
-            ordinal,
-        } in packets
-        {
-            let key = CrdsKey { from, index };
+        for Packet { key, ordinal } in packets {
             match self.table.entry(key) {
                 Entry::Occupied(mut entry) => {
                     if entry.get() < &ordinal {
