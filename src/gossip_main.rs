@@ -105,7 +105,7 @@ fn main() {
             Arg::with_name("warm_up_rounds")
                 .long("warm-up-rounds")
                 .takes_value(true)
-                .help("Number of gossip rounds before collecting stats"),
+                .help("number of gossip rounds before collecting stats"),
         )
         .get_matches();
 

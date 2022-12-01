@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 clap = { version = "3.1.5", features = ["cargo", "env"] }
 crossbeam-channel = "0.5"
+env_logger = "0.10.0"
 itertools = "0.10.5"
 log = "0.4.17"
 num_cpus = "1.14.0"
@@ -19,3 +20,7 @@ thiserror = "1.0"
 [[bin]]
 name = "gossip"
 path = "src/gossip_main.rs"
+
+[[bin]]
+name = "fanout"
+path = "src/fanout_main.rs"

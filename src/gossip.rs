@@ -127,15 +127,19 @@ impl Node {
             for _ in 0..config.gossip_push_fanout {
                 // TODO: This may choose duplicate nodes!
                 if let Some(node) = nodes.choose(rng) {
+                    if node == &self.pubkey {
+                        continue;
+                    }
                     router.send(rng, node, packet)?;
                 }
             }
         }
         trace!(
-            "{}, {:?}: {}ms, packets: {}, outdated: {}, {:.0}%, keys: {}, {}ms",
+            "{}, {:?}: {}ms, round: {}, packets: {}, outdated: {}, {:.0}%, keys: {}, {}ms",
             &format!("{}", self.pubkey)[..8],
             std::thread::current().id(),
             elapsed.as_millis(),
+            self.num_gossip_rounds,
             num_packets,
             num_outdated,
             if num_packets == 0 {
