@@ -13,6 +13,7 @@ num_cpus = "1.14.0"
 rand = "0.7.0"
 rayon = "1.6.0"
 solana-client = { git = "https://github.com/solana-labs/solana", rev = "c1e440acb6c1b0cbbc7625adfebcef2090e4b9f6" }
+solana-gossip = { git = "https://github.com/solana-labs/solana", rev = "c1e440acb6c1b0cbbc7625adfebcef2090e4b9f6" }
 solana-logger = { git = "https://github.com/solana-labs/solana", rev = "c1e440acb6c1b0cbbc7625adfebcef2090e4b9f6" }
 solana-sdk = { git = "https://github.com/solana-labs/solana", rev = "c1e440acb6c1b0cbbc7625adfebcef2090e4b9f6" }
 thiserror = "1.0"
@@ -24,3 +25,7 @@ path = "src/gossip_main.rs"
 [[bin]]
 name = "fanout"
 path = "src/fanout_main.rs"
+
+[[bin]]
+name = "sample-peers"
+path = "src/sample_peers_main.rs"

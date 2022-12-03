@@ -2,7 +2,7 @@ use {
     clap::{crate_description, crate_name, App, Arg},
     cluster_mocks::{
         gossip::{get_crds_table, make_gossip_cluster, Config, Node, Packet},
-        Error, Router, API_MAINNET_BETA, API_TESTNET,
+        Error, Router, API_MAINNET_BETA,
     },
     log::info,
     rand::seq::SliceRandom,
@@ -109,11 +109,8 @@ fn main() {
         )
         .get_matches();
 
-    let json_rpc_url = match matches.value_of("json_rpc_url").unwrap_or_default() {
-        "m" | "mainnet-beta" => API_MAINNET_BETA,
-        "t" | "testnet" => API_TESTNET,
-        url => url,
-    };
+    let json_rpc_url =
+        cluster_mocks::get_json_rpc_url(matches.value_of("json_rpc_url").unwrap_or_default());
     info!("json_rpc_url: {}", json_rpc_url);
     let rpc_client = RpcClient::new(json_rpc_url);
     let num_crds = matches.value_of_t_or_exit("num_crds");

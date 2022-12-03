@@ -64,6 +64,7 @@ impl<T> Router<T> {
 
 impl<T> Router<T> {
     fn send<R: Rng>(&self, rng: &mut R, node: &Pubkey, data: T) -> Result<(), RouterError> {
+        // TODO: How to simulate packets arriving with delay?
         match self.senders.get(node) {
             None => Err(RouterError::NodeNotFound(*node)),
             Some(route) => {
@@ -74,5 +75,13 @@ impl<T> Router<T> {
                 }
             }
         }
+    }
+}
+
+pub fn get_json_rpc_url(json_rpc_url: &str) -> &str {
+    match json_rpc_url {
+        "m" | "mainnet-beta" => API_MAINNET_BETA,
+        "t" | "testnet" => API_TESTNET,
+        _ => json_rpc_url,
     }
 }
