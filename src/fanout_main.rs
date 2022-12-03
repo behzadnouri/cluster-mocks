@@ -8,6 +8,7 @@ use {
 #[derive(Debug)]
 struct Config {
     gossip_push_fanout: usize,
+    gossip_push_wide_fanout: usize,
     cluster_size: usize,
     num_rounds: usize,
 }
@@ -25,11 +26,16 @@ fn run_fanout<R: Rng>(rng: &mut R, config: &Config) {
         seen[0] = true;
         queue.push_back(0);
         while let Some(node) = queue.pop_front() {
-            for i in 0..config.gossip_push_fanout {
+            let gossip_push_fanout = if node == 0 {
+                config.gossip_push_wide_fanout
+            } else {
+                config.gossip_push_fanout
+            };
+            for i in 0..gossip_push_fanout {
                 let j = rng.gen_range(i, config.cluster_size);
                 nodes.swap(i, j);
             }
-            for &other in &nodes[..config.gossip_push_fanout] {
+            for &other in &nodes[..gossip_push_fanout] {
                 if other == node {
                     continue;
                 }
@@ -71,6 +77,12 @@ fn main() {
                 .help("gossip push fanout"),
         )
         .arg(
+            Arg::with_name("gossip_push_wide_fanout")
+                .long("gossip-push-wide-fanout")
+                .takes_value(true)
+                .help("gossip push fanout"),
+        )
+        .arg(
             Arg::with_name("cluster_size")
                 .long("cluset-size")
                 .takes_value(true)
@@ -85,10 +97,16 @@ fn main() {
                 .help("number of rounds to simulate"),
         )
         .get_matches();
-    let config = Config {
-        gossip_push_fanout: matches.value_of_t_or_exit("gossip_push_fanout"),
-        cluster_size: matches.value_of_t_or_exit("cluster_size"),
-        num_rounds: matches.value_of_t_or_exit("num_rounds"),
+    let config = {
+        let gossip_push_fanout = matches.value_of_t_or_exit("gossip_push_fanout");
+        Config {
+            gossip_push_fanout,
+            gossip_push_wide_fanout: matches
+                .value_of_t("gossip_push_wide_fanout")
+                .unwrap_or(gossip_push_fanout),
+            cluster_size: matches.value_of_t_or_exit("cluster_size"),
+            num_rounds: matches.value_of_t_or_exit("num_rounds"),
+        }
     };
     info!("config: {:#?}", config);
     let mut rng = rand::thread_rng();

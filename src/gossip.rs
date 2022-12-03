@@ -32,7 +32,8 @@ pub struct Node {
 #[derive(Clone, Copy, Debug)]
 pub struct Config {
     pub gossip_push_fanout: usize,
-    // Maximum number of packets to push in each gossip round.
+    // TODO: wide fanout
+    // TODO: Maximum number of packets to push in each gossip round.
     pub gossip_push_capacity: usize,
     pub packet_drop_rate: f64,
     pub num_crds: usize, // Number of crds values per node.
