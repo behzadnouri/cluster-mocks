@@ -32,6 +32,7 @@ pub struct Node {
 #[derive(Clone, Copy, Debug)]
 pub struct Config {
     pub gossip_push_fanout: usize,
+    pub gossip_push_wide_fanout: usize,
     // TODO: wide fanout
     // TODO: Maximum number of packets to push in each gossip round.
     pub gossip_push_capacity: usize,
@@ -125,7 +126,12 @@ impl Node {
                 key,
                 ordinal: self.table[&key],
             };
-            for _ in 0..config.gossip_push_fanout {
+            let gossip_push_fanout = if key.origin == self.pubkey {
+                config.gossip_push_wide_fanout
+            } else {
+                config.gossip_push_fanout
+            };
+            for _ in 0..gossip_push_fanout {
                 // TODO: This may choose duplicate nodes!
                 if let Some(node) = nodes.choose(rng) {
                     if node == &self.pubkey {

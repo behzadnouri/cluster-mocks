@@ -80,7 +80,7 @@ fn main() {
             Arg::with_name("gossip_push_wide_fanout")
                 .long("gossip-push-wide-fanout")
                 .takes_value(true)
-                .help("gossip push fanout"),
+                .help("gossip push wide fanout"),
         )
         .arg(
             Arg::with_name("cluster_size")

@@ -74,6 +74,12 @@ fn main() {
                 .help("gossip push fanout"),
         )
         .arg(
+            Arg::with_name("gossip_push_wide_fanout")
+                .long("gossip-push-wide-fanout")
+                .takes_value(true)
+                .help("gossip push wide fanout"),
+        )
+        .arg(
             Arg::with_name("gossip_push_capacity")
                 .long("gossip-push-capacity")
                 .takes_value(true)
@@ -113,18 +119,26 @@ fn main() {
         cluster_mocks::get_json_rpc_url(matches.value_of("json_rpc_url").unwrap_or_default());
     info!("json_rpc_url: {}", json_rpc_url);
     let rpc_client = RpcClient::new(json_rpc_url);
-    let num_crds = matches.value_of_t_or_exit("num_crds");
-    let config = Config {
-        gossip_push_fanout: matches.value_of_t_or_exit("gossip_push_fanout"),
-        gossip_push_capacity: matches.value_of_t_or_exit("gossip_push_capacity"),
-        packet_drop_rate: matches.value_of_t_or_exit("packet_drop_rate"),
-        num_crds,
-        refresh_rate: matches.value_of_t_or_exit("refresh_rate"),
-        num_threads: matches
-            .value_of_t("num_threads")
-            .unwrap_or_else(|_| num_cpus::get()),
-        run_duration: Duration::from_secs(matches.value_of_t_or_exit::<u64>("run_duration") * 60),
-        warm_up_rounds: matches.value_of_t("warm_up_rounds").unwrap_or(2 * num_crds),
+    let config = {
+        let num_crds = matches.value_of_t_or_exit("num_crds");
+        let gossip_push_fanout = matches.value_of_t_or_exit("gossip_push_fanout");
+        Config {
+            gossip_push_fanout,
+            gossip_push_wide_fanout: matches
+                .value_of_t("gossip_push_wide_fanout")
+                .unwrap_or(gossip_push_fanout),
+            gossip_push_capacity: matches.value_of_t_or_exit("gossip_push_capacity"),
+            packet_drop_rate: matches.value_of_t_or_exit("packet_drop_rate"),
+            num_crds,
+            refresh_rate: matches.value_of_t_or_exit("refresh_rate"),
+            num_threads: matches
+                .value_of_t("num_threads")
+                .unwrap_or_else(|_| num_cpus::get()),
+            run_duration: Duration::from_secs(
+                matches.value_of_t_or_exit::<u64>("run_duration") * 60,
+            ),
+            warm_up_rounds: matches.value_of_t("warm_up_rounds").unwrap_or(2 * num_crds),
+        }
     };
     info!("config: {:#?}", config);
     assert!(config.num_threads > 0);
