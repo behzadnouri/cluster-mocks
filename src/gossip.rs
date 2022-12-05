@@ -141,22 +141,25 @@ impl Node {
                 }
             }
         }
-        trace!(
-            "{}, {:?}: {}ms, round: {}, packets: {}, outdated: {}, {:.0}%, keys: {}, {}ms",
-            &format!("{}", self.pubkey)[..8],
-            std::thread::current().id(),
-            elapsed.as_millis(),
-            self.num_gossip_rounds,
-            num_packets,
-            num_outdated,
-            if num_packets == 0 {
-                0.0
-            } else {
-                num_outdated as f64 * 100.0 / num_packets as f64
-            },
-            num_keys,
-            self.clock.elapsed().as_millis(),
-        );
+        if rng.gen_ratio(1, 1000) {
+            trace!(
+                "{}, {:?}: {}ms, round: {}, packets: {}, \
+                outdated: {}, {:.0}%, keys: {}, {}ms",
+                &format!("{}", self.pubkey)[..8],
+                std::thread::current().id(),
+                elapsed.as_millis(),
+                self.num_gossip_rounds,
+                num_packets,
+                num_outdated,
+                if num_packets == 0 {
+                    0.0
+                } else {
+                    num_outdated as f64 * 100.0 / num_packets as f64
+                },
+                num_keys,
+                self.clock.elapsed().as_millis(),
+            );
+        }
         Ok(())
     }
 
