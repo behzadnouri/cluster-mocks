@@ -119,8 +119,12 @@ impl Node {
             .collect();
         let num_keys = keys.len();
         // Push/fanout overwritten keys to other nodes.
-        let mut nodes: Vec<_> = stakes.keys().copied().collect();
-        nodes.shuffle(rng);
+        let mut peers: Vec<_> = stakes
+            .keys()
+            .copied()
+            .filter(|node| node != &self.pubkey)
+            .collect();
+        peers.shuffle(rng);
         for key in keys {
             let packet = Packet {
                 key,
@@ -133,11 +137,8 @@ impl Node {
             };
             let gossip_push_fanout =
                 gossip_push_fanout as usize + rng.gen_bool(gossip_push_fanout % 1.0) as usize;
-            // TODO: exclude self from this list.
-            for node in nodes.iter().take(gossip_push_fanout) {
-                if node == &self.pubkey {
-                    continue;
-                }
+            for node in peers.iter().take(gossip_push_fanout) {
+                assert_ne!(node, &self.pubkey);
                 router.send(rng, node, packet)?;
             }
         }
