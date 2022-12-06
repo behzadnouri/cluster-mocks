@@ -61,7 +61,7 @@ fn run_sample_peers<R: Rng>(rng: &mut R, config: &Config, stakes: &HashMap<Pubke
     for (pubkey, stake, hits) in hits {
         println!(
             "{} | {:.3}% | {:5.2} | {:5}",
-            &format!("{}", pubkey)[..8],
+            &format!("{pubkey}")[..8],
             stake as f64 * 100.0 / active_stake as f64,
             crds_gossip::get_stake(&pubkey, stakes),
             hits

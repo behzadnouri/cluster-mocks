@@ -59,13 +59,13 @@ fn run_fanout<R: Rng>(rng: &mut R, config: &Config) {
     }
     let num_rounds = config.num_rounds as f64;
     let packets_node = num_packets as f64 / config.cluster_size as f64 / num_rounds;
-    println!("packets/node: {:.0}", packets_node);
+    println!("packets/node: {packets_node:.0}");
     let outdated = num_outdated as f64 * 100.0 / num_packets as f64;
-    println!("outdated:     {:.2}%", outdated);
+    println!("outdated:     {outdated:.2}%");
     let waste = num_outdated as f64 / (num_packets - num_outdated) as f64;
-    println!("waste:        {:.1}", waste);
+    println!("waste:        {waste:.1}");
     let propagation = num_seen as f64 * 100.0 / config.cluster_size as f64 / num_rounds;
-    println!("propagation:  {:.2}%", propagation);
+    println!("propagation:  {propagation:.2}%");
 }
 
 fn main() {
