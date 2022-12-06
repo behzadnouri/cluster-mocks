@@ -133,14 +133,12 @@ impl Node {
             };
             let gossip_push_fanout =
                 gossip_push_fanout as usize + rng.gen_bool(gossip_push_fanout % 1.0) as usize;
-            for _ in 0..gossip_push_fanout {
-                // TODO: This may choose duplicate nodes!
-                if let Some(node) = nodes.choose(rng) {
-                    if node == &self.pubkey {
-                        continue;
-                    }
-                    router.send(rng, node, packet)?;
+            // TODO: exclude self from this list.
+            for node in nodes.iter().take(gossip_push_fanout) {
+                if node == &self.pubkey {
+                    continue;
                 }
+                router.send(rng, node, packet)?;
             }
         }
         if rng.gen_ratio(1, 1000) {
