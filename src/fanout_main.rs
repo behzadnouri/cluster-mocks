@@ -7,9 +7,8 @@ use {
 
 #[derive(Debug)]
 struct Config {
-    // TODO: use f64 for fanout with probabilistic interpretation.
-    gossip_push_fanout: usize,
-    gossip_push_wide_fanout: usize,
+    gossip_push_fanout: f64,
+    gossip_push_wide_fanout: f64,
     // Probability that a duplicate message is re-pushed.
     bounce_back: f64,
     cluster_size: usize,
@@ -34,6 +33,8 @@ fn run_fanout<R: Rng>(rng: &mut R, config: &Config) {
             } else {
                 config.gossip_push_fanout
             };
+            let gossip_push_fanout =
+                gossip_push_fanout as usize + rng.gen_bool(gossip_push_fanout % 1.0) as usize;
             for i in 0..gossip_push_fanout {
                 let j = rng.gen_range(i, config.cluster_size);
                 nodes.swap(i, j);
