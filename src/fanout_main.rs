@@ -7,8 +7,11 @@ use {
 
 #[derive(Debug)]
 struct Config {
+    // TODO: use f64 for fanout with probabilistic interpretation.
     gossip_push_fanout: usize,
     gossip_push_wide_fanout: usize,
+    // Probability that a duplicate message is re-pushed.
+    bounce_back: f64,
     cluster_size: usize,
     num_rounds: usize,
 }
@@ -42,6 +45,9 @@ fn run_fanout<R: Rng>(rng: &mut R, config: &Config) {
                 num_packets += 1;
                 if seen[other] {
                     num_outdated += 1;
+                    if rng.gen_bool(config.bounce_back) {
+                        queue.push_back(other);
+                    }
                 } else {
                     seen[other] = true;
                     queue.push_back(other);
@@ -83,10 +89,17 @@ fn main() {
                 .help("gossip push wide fanout"),
         )
         .arg(
+            Arg::with_name("bounce_back")
+                .long("bounce-back")
+                .takes_value(true)
+                .default_value("0.0")
+                .help("probability that a duplicate message is re-pushed"),
+        )
+        .arg(
             Arg::with_name("cluster_size")
                 .long("cluset-size")
                 .takes_value(true)
-                .default_value("3000")
+                .default_value("3132")
                 .help("number of nodes in the cluster"),
         )
         .arg(
@@ -104,6 +117,7 @@ fn main() {
             gossip_push_wide_fanout: matches
                 .value_of_t("gossip_push_wide_fanout")
                 .unwrap_or(gossip_push_fanout),
+            bounce_back: matches.value_of_t_or_exit("bounce_back"),
             cluster_size: matches.value_of_t_or_exit("cluster_size"),
             num_rounds: matches.value_of_t_or_exit("num_rounds"),
         }

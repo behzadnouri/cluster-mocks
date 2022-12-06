@@ -166,6 +166,7 @@ fn main() {
         .into_iter()
         .collect::<Result<Vec<()>, Error>>()
         .unwrap();
+    info!("run_gossip done!");
     let mut nodes: Vec<_> = nodes
         .into_iter()
         .map(RwLock::into_inner)
@@ -177,13 +178,14 @@ fn main() {
             node.consume_packets();
         })
     });
+    info!("consume_packets done!");
     // Obtain most recent crds table across all nodes.
     let table = get_crds_table(&nodes);
     info!("num crds entries per node: {}", table.len() / nodes.len());
     // For each node compute how fresh its CRDS table is.
     nodes.sort_unstable_by_key(|node| Reverse(node.stake()));
     let active_stake: u64 = nodes.iter().map(|node| node.stake()).sum();
-    println!("node     | stake | rounds |    table | crds");
+    println!("node     | stake | rounds |   table | crds");
     println!("-------------------------------------------");
     for node in &nodes {
         let node_table = node.table();
@@ -192,7 +194,7 @@ fn main() {
             .filter(|(key, ordinal)| node_table.get(key) == Some(ordinal))
             .count();
         println!(
-            "{} | {:.2}% | {:6} | {:8} | {:2}%",
+            "{} | {:.2}% | {:6} | {:7} | {:2}%",
             &format!("{}", node.pubkey())[..8],
             node.stake() as f64 * 100.0 / active_stake as f64,
             node.num_gossip_rounds(),
