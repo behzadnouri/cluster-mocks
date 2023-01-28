@@ -1,5 +1,5 @@
 use {
-    crate::{Error, Router},
+    crate::{Error, Router, received_cache::ReceivedCache},
     crossbeam_channel::{Receiver, Sender},
     itertools::Itertools,
     log::{error, info, trace},
