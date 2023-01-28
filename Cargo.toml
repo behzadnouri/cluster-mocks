@@ -7,12 +7,14 @@ edition = "2021"
 clap = { version = "3.1.5", features = ["cargo", "env"] }
 crossbeam-channel = "0.5"
 env_logger = "0.10.0"
+indexmap = "1.9.2"
 itertools = "0.10.5"
 log = "0.4.17"
 lru = "0.7.7"
 num_cpus = "1.14.0"
 rand = "0.7.0"
 rayon = "1.6.0"
+solana-bloom = { git = "https://github.com/solana-labs/solana", rev = "2da02992b79eec57095e4aa4010495310be86367" }
 solana-client = { git = "https://github.com/solana-labs/solana", rev = "2da02992b79eec57095e4aa4010495310be86367" }
 solana-gossip = { git = "https://github.com/solana-labs/solana", rev = "2da02992b79eec57095e4aa4010495310be86367" }
 solana-logger = { git = "https://github.com/solana-labs/solana", rev = "2da02992b79eec57095e4aa4010495310be86367" }

@@ -12,6 +12,7 @@ pub const API_TESTNET: &str = "https://api.testnet.solana.com";
 
 pub mod gossip;
 mod received_cache;
+mod push_active_set;
 
 #[derive(Debug, Error)]
 pub enum Error {
