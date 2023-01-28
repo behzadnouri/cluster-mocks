@@ -121,16 +121,7 @@ impl Node {
             self.send_prunes(rng, origins, stakes, router)?;
         }
         // Refresh own gossip entries!
-        let num_refresh =
-            config.refresh_rate as usize + rng.gen_bool(config.refresh_rate % 1.0) as usize;
-        for index in repeat_with(|| rng.gen_range(0, config.num_crds)).take(num_refresh) {
-            let key = CrdsKey {
-                origin: self.pubkey,
-                index,
-            };
-            self.table.entry(key).or_default().ordinal += 1;
-            keys.insert(key);
-        }
+        keys.extend(self.refresh_entries(rng, config));
         // Sort updated keys by origin's stake.
         let keys: Vec<_> = keys
             .into_iter()
@@ -224,6 +215,26 @@ impl Node {
             router.send(rng, &node, Arc::new(packet))?;
         }
         Ok(())
+    }
+
+    // Refreshes own gossip entries, returning upserted crds keys.
+    fn refresh_entries<'a, R: Rng>(
+        &'a mut self,
+        rng: &'a mut R,
+        config: &'a Config,
+    ) -> impl Iterator<Item = CrdsKey> + 'a {
+        let num_refresh =
+            config.refresh_rate as usize + rng.gen_bool(config.refresh_rate % 1.0) as usize;
+        repeat_with(|| rng.gen_range(0, config.num_crds))
+            .take(num_refresh)
+            .map(|index| {
+                let key = CrdsKey {
+                    origin: self.pubkey,
+                    index,
+                };
+                self.table.entry(key).or_default().ordinal += 1;
+                key
+            })
     }
 
     /// Drains the channel for incoming packets and updates crds table.
