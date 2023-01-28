@@ -4,7 +4,7 @@ use {
     log::info,
     rand::Rng,
     solana_client::rpc_client::RpcClient,
-    solana_gossip::{crds_gossip, weighted_shuffle::WeightedShuffle},
+    solana_gossip::weighted_shuffle::WeightedShuffle,
     solana_sdk::pubkey::Pubkey,
     std::{
         cmp::Reverse,
@@ -20,31 +20,26 @@ struct Config {
     round_delay: Duration,
 }
 
+fn get_weight(pubkey: &Pubkey, stakes: &HashMap<Pubkey, u64>) -> u64 {
+    // TODO: Needs to min with this node's stake!
+    // TODO: no need to run sim here anymore!
+    let stake = stakes.get(&pubkey).copied().unwrap_or_default();
+    let weight = u64::BITS - stake.leading_zeros();
+    u64::from(weight).saturating_add(1).saturating_pow(2)
+}
+
 fn run_sample_peers<R: Rng>(rng: &mut R, config: &Config, stakes: &HashMap<Pubkey, u64>) {
-    const MAX_WEIGHT: f32 = u16::MAX as f32 - 1.0;
     let mut now = Instant::now();
     let mut hits = HashMap::<Pubkey, usize>::with_capacity(stakes.len());
-    let mut touch = HashMap::<Pubkey, Instant>::with_capacity(stakes.len());
     for _ in 0..config.num_rounds {
         let (nodes, weights): (Vec<_>, Vec<_>) = stakes
             .keys()
-            .map(|&pubkey| {
-                let stake = crds_gossip::get_stake(&pubkey, stakes);
-                let since = touch
-                    .get(&pubkey)
-                    .map(|&t| (now - t).as_millis())
-                    .unwrap_or(u128::MAX)
-                    .min(3600 * 1000);
-                let since = (since / 1024) as u32;
-                let weight = crds_gossip::get_weight(MAX_WEIGHT, since, stake);
-                (pubkey, (weight * 100.0) as u64)
-            })
+            .map(|pubkey| (*pubkey, get_weight(pubkey, stakes)))
             .unzip();
         let shuffle = WeightedShuffle::new("run-sample-peers", &weights).shuffle(rng);
         for k in shuffle.take(config.gossip_push_fanout) {
             let node = nodes[k];
             *hits.entry(node).or_default() += 1;
-            touch.insert(node, now);
         }
         now += config.round_delay;
     }
@@ -63,7 +58,7 @@ fn run_sample_peers<R: Rng>(rng: &mut R, config: &Config, stakes: &HashMap<Pubke
             "{} | {:.3}% | {:5.2} | {:5}",
             &format!("{pubkey}")[..8],
             stake as f64 * 100.0 / active_stake as f64,
-            crds_gossip::get_stake(&pubkey, stakes),
+            get_weight(&pubkey, stakes),
             hits
         );
     }
