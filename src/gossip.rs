@@ -105,7 +105,7 @@ impl Node {
         self.num_gossip_rounds += 1;
         // Drain the channel for incomming packets.
         // Insert new messages into the CRDS table.
-        let (mut keys, num_packets, num_outdated) = self.consume_packets();
+        let (mut keys, num_packets, num_outdated, num_duplicates) = self.consume_packets();
         // Refresh own gossip entries!
         let num_refresh =
             config.refresh_rate as usize + rng.gen_bool(config.refresh_rate % 1.0) as usize;
@@ -156,7 +156,7 @@ impl Node {
         if rng.gen_ratio(1, 1000) {
             trace!(
                 "{}, {:?}: {}ms, round: {}, packets: {}, \
-                outdated: {}, {:.0}%, keys: {}, {}ms",
+                outdated: {}, {:.0}%, duplicates: {}, {:.0}%, keys: {}, {}ms",
                 &format!("{}", self.pubkey)[..8],
                 std::thread::current().id(),
                 elapsed.as_millis(),
@@ -167,6 +167,12 @@ impl Node {
                     0.0
                 } else {
                     num_outdated as f64 * 100.0 / num_packets as f64
+                },
+                num_duplicates,
+                if num_packets == 0 {
+                    0.0
+                } else {
+                    num_duplicates as f64 * 100.0 / num_packets as f64
                 },
                 num_keys,
                 self.clock.elapsed().as_millis(),
@@ -182,40 +188,34 @@ impl Node {
         HashSet<CrdsKey>,
         usize, // num packets
         usize, // num outdated
+        usize, // num duplicates
     ) {
         let packets: Vec<_> = self.receiver.try_iter().collect();
         // Insert new messages into the CRDS table.
         let mut keys = HashSet::<CrdsKey>::new();
         let num_packets = packets.len();
         let mut num_outdated = 0;
+        let mut num_duplicates = 0;
         for Packet { from, key, ordinal } in packets {
-            match self.table.entry(key) {
-                Entry::Occupied(mut entry) => {
-                    let entry = entry.get_mut();
-                    if entry.ordinal < ordinal {
-                        entry.ordinal = ordinal;
-                        self.received_cache
-                            .record(key.origin, from, /*num_dups:*/ 0);
-                        keys.insert(key);
-                    } else {
-                        entry.num_dups = entry.num_dups.saturating_add(1u8);
-                        self.received_cache
-                            .record(key.origin, from, usize::from(entry.num_dups));
-                        num_outdated += 1;
-                    }
-                }
-                Entry::Vacant(entry) => {
-                    entry.insert(CrdsEntry {
-                        ordinal,
-                        num_dups: 0u8,
-                    });
+            match self.upsert(from, key, ordinal) {
+                Ok(()) => {
                     self.received_cache
                         .record(key.origin, from, /*num_dups:*/ 0);
                     keys.insert(key);
                 }
+                Err(UpsertError::Outdated) => {
+                    self.received_cache
+                        .record(key.origin, from, /*num_dups:*/ usize::MAX);
+                    num_outdated += 1;
+                }
+                Err(UpsertError::Duplicate(num_dups)) => {
+                    self.received_cache
+                        .record(key.origin, from, usize::from(num_dups));
+                    num_duplicates += 1;
+                }
             }
         }
-        (keys, num_packets, num_outdated)
+        (keys, num_packets, num_outdated, num_duplicates)
     }
 
     fn upsert(&mut self, from: Pubkey, key: CrdsKey, ordinal: u64) -> Result<(), UpsertError> {
