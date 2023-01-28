@@ -114,7 +114,7 @@ impl Node {
         self.num_gossip_rounds += 1;
         // Drain the channel for incomming packets.
         // Insert new messages into the CRDS table.
-        let (mut keys, num_packets, num_outdated, num_duplicates) = self.consume_packets();
+        let (mut keys, num_packets, num_outdated, num_duplicates) = self.consume_packets(stakes);
         // Send prune messages for upserted origins.
         {
             let origins = keys.iter().map(|key| key.origin);
@@ -240,6 +240,7 @@ impl Node {
     /// Drains the channel for incoming packets and updates crds table.
     pub fn consume_packets(
         &mut self,
+        stakes: &HashMap<Pubkey, u64>,
     ) -> (
         HashSet<CrdsKey>, // upserted keys
         usize,            // num packets
@@ -276,7 +277,12 @@ impl Node {
                         }
                     }
                 }
-                Packet::Prune { .. } => todo!(),
+                Packet::Prune {
+                    ref from,
+                    ref origins,
+                } => {
+                    self.active_set.prune(&self.pubkey, from, origins, stakes);
+                }
             }
         }
         (keys, num_packets, num_outdated, num_duplicates)

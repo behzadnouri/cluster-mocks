@@ -175,7 +175,7 @@ fn main() {
     // Consume packets buffered at each node's receiver channel.
     thread_pool.install(|| {
         nodes.par_iter_mut().for_each(|node| {
-            node.consume_packets();
+            node.consume_packets(&stakes);
         })
     });
     info!("consume_packets done!");
