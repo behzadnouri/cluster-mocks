@@ -80,6 +80,13 @@ fn main() {
                 .help("gossip push wide fanout"),
         )
         .arg(
+            Arg::with_name("rotate_active_set_rounds")
+                .long("rotate-active-set-rounds")
+                .takes_value(true)
+                .default_value("35")
+                .help("Number of gossip rounds between push active set rotations"),
+        )
+        .arg(
             Arg::with_name("gossip_push_capacity")
                 .long("gossip-push-capacity")
                 .takes_value(true)
@@ -127,6 +134,7 @@ fn main() {
             gossip_push_wide_fanout: matches
                 .value_of_t("gossip_push_wide_fanout")
                 .unwrap_or(gossip_push_fanout),
+            rotate_active_set_rounds: matches.value_of_t_or_exit("rotate_active_set_rounds"),
             gossip_push_capacity: matches.value_of_t_or_exit("gossip_push_capacity"),
             packet_drop_rate: matches.value_of_t_or_exit("packet_drop_rate"),
             num_crds,

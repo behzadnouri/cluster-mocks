@@ -39,6 +39,8 @@ pub struct Node {
 pub struct Config {
     pub gossip_push_fanout: f64,
     pub gossip_push_wide_fanout: f64,
+    // Number of gossip rounds between push active set rotations.
+    pub rotate_active_set_rounds: usize,
     // TODO: wide fanout
     // TODO: Maximum number of packets to push in each gossip round.
     pub gossip_push_capacity: usize,
@@ -112,8 +114,7 @@ impl Node {
         let elapsed = self.clock.elapsed();
         self.clock = Instant::now();
         self.num_gossip_rounds += 1;
-        // TODO: this should be flag!
-        if self.num_gossip_rounds % 100 == 1 {
+        if self.num_gossip_rounds % config.rotate_active_set_rounds == 1 {
             self.rotate_active_set(rng, config.gossip_push_fanout as usize, stakes);
         }
         // Drain the channel for incomming packets.
