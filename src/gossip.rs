@@ -134,12 +134,6 @@ impl Node {
             .collect();
         let num_keys = keys.len();
         // Push/fanout overwritten keys to other nodes.
-        let mut peers: Vec<_> = stakes
-            .keys()
-            .copied()
-            .filter(|node| node != &self.pubkey)
-            .collect();
-        peers.shuffle(rng);
         for key in keys {
             let packet = Arc::new(Packet::Push {
                 from: self.pubkey,
@@ -153,7 +147,11 @@ impl Node {
             };
             let gossip_push_fanout =
                 gossip_push_fanout as usize + rng.gen_bool(gossip_push_fanout % 1.0) as usize;
-            for node in peers.iter().take(gossip_push_fanout) {
+            for node in self
+                .active_set
+                .get_nodes(&self.pubkey, &key.origin, |_| false, stakes)
+                .take(gossip_push_fanout)
+            {
                 assert_ne!(node, &self.pubkey);
                 router.send(rng, node, packet.clone())?;
             }
