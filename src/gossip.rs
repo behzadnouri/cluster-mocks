@@ -3,7 +3,7 @@ use {
     crossbeam_channel::{Receiver, Sender},
     itertools::Itertools,
     log::{error, info, trace},
-    rand::{seq::SliceRandom, Rng},
+    rand::Rng,
     solana_client::{
         rpc_client::RpcClient, rpc_config::RpcGetVoteAccountsConfig,
         rpc_response::RpcVoteAccountStatus,
@@ -112,6 +112,10 @@ impl Node {
         let elapsed = self.clock.elapsed();
         self.clock = Instant::now();
         self.num_gossip_rounds += 1;
+        // TODO: this should be flag!
+        if self.num_gossip_rounds % 100 == 1 {
+            self.rotate_active_set(rng, config.gossip_push_fanout as usize, stakes);
+        }
         // Drain the channel for incomming packets.
         // Insert new messages into the CRDS table.
         let (mut keys, num_packets, num_outdated, num_duplicates) = self.consume_packets(stakes);
@@ -313,6 +317,26 @@ impl Node {
                 Ok(())
             }
         }
+    }
+
+    fn rotate_active_set<R: Rng>(
+        &mut self,
+        rng: &mut R,
+        gossip_push_fanout: usize,
+        stakes: &HashMap<Pubkey, u64>,
+    ) {
+        // Gossip nodes to be sampled for each push active set.
+        // TODO: this should only be a set of entrypoints not all staked nodes.
+        let nodes: Vec<_> = stakes
+            .keys()
+            .copied()
+            .chain(self.table.keys().map(|key| key.origin))
+            .collect::<HashSet<_>>()
+            .into_iter()
+            .collect();
+        let cluster_size = nodes.len();
+        self.active_set
+            .rotate(rng, gossip_push_fanout * 3, cluster_size, &nodes, stakes);
     }
 }
 

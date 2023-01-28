@@ -21,6 +21,9 @@ solana-logger = { git = "https://github.com/solana-labs/solana", rev = "2da02992
 solana-sdk = { git = "https://github.com/solana-labs/solana", rev = "2da02992b79eec57095e4aa4010495310be86367" }
 thiserror = "1.0"
 
+[dev-dependencies]
+rand_chacha = "0.2.2"
+
 [[bin]]
 name = "gossip"
 path = "src/gossip_main.rs"
