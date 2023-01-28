@@ -11,7 +11,7 @@ use {
     solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey},
     std::{
         borrow::Borrow,
-        cmp::Reverse,
+        cmp::{Ordering, Reverse},
         collections::{hash_map::Entry, HashMap, HashSet},
         iter::repeat_with,
         str::FromStr,
@@ -66,6 +66,11 @@ pub struct Packet {
     from: Pubkey,
     key: CrdsKey,
     ordinal: u64,
+}
+
+enum UpsertError {
+    Outdated,
+    Duplicate(/*num_dups:*/ u8),
 }
 
 // TODO: should let nodes maintain their own view of the cluster?!
@@ -211,6 +216,35 @@ impl Node {
             }
         }
         (keys, num_packets, num_outdated)
+    }
+
+    fn upsert(&mut self, from: Pubkey, key: CrdsKey, ordinal: u64) -> Result<(), UpsertError> {
+        match self.table.entry(key) {
+            Entry::Occupied(mut entry) => {
+                let entry = entry.get_mut();
+                match entry.ordinal.cmp(&ordinal) {
+                    Ordering::Less => {
+                        *entry = CrdsEntry {
+                            ordinal,
+                            num_dups: 0u8,
+                        };
+                        Ok(())
+                    }
+                    Ordering::Equal => {
+                        entry.num_dups = entry.num_dups.saturating_add(1u8);
+                        Err(UpsertError::Duplicate(entry.num_dups))
+                    }
+                    Ordering::Greater => Err(UpsertError::Outdated),
+                }
+            }
+            Entry::Vacant(entry) => {
+                entry.insert(CrdsEntry {
+                    ordinal,
+                    num_dups: 0u8,
+                });
+                Ok(())
+            }
+        }
     }
 }
 
