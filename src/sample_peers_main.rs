@@ -23,7 +23,7 @@ struct Config {
 fn get_weight(pubkey: &Pubkey, stakes: &HashMap<Pubkey, u64>) -> u64 {
     // TODO: Needs to min with this node's stake!
     // TODO: no need to run sim here anymore!
-    let stake = stakes.get(&pubkey).copied().unwrap_or_default();
+    let stake = stakes.get(pubkey).copied().unwrap_or_default();
     let weight = u64::BITS - stake.leading_zeros();
     u64::from(weight).saturating_add(1).saturating_pow(2)
 }

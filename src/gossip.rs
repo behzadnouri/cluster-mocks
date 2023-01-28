@@ -318,6 +318,7 @@ impl CrdsEntry {
     }
 }
 
+#[allow(clippy::type_complexity)]
 pub fn make_gossip_cluster(
     rpc_client: &RpcClient,
 ) -> Result<Vec<(Node, Sender<Arc<Packet>>)>, Error> {
