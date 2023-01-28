@@ -13,7 +13,7 @@ use {
         borrow::Borrow,
         cmp::{Ordering, Reverse},
         collections::{hash_map::Entry, HashMap, HashSet},
-        iter::repeat_with,
+        iter::{repeat, repeat_with},
         str::FromStr,
         sync::Arc,
         time::{Duration, Instant},
@@ -21,6 +21,8 @@ use {
 };
 
 const CRDS_UNIQUE_PUBKEY_CAPACITY: usize = 8192;
+const CRDS_GOSSIP_PRUNE_MIN_INGRESS_NODES: usize = 3;
+const CRDS_GOSSIP_PRUNE_STAKE_THRESHOLD_PCT: f64 = 0.15;
 
 #[derive(Debug)]
 pub struct Node {
@@ -113,6 +115,11 @@ impl Node {
         // Drain the channel for incomming packets.
         // Insert new messages into the CRDS table.
         let (mut keys, num_packets, num_outdated, num_duplicates) = self.consume_packets();
+        // Send prune messages for upserted origins.
+        {
+            let origins = keys.iter().map(|key| key.origin);
+            self.send_prunes(rng, origins, stakes, router)?;
+        }
         // Refresh own gossip entries!
         let num_refresh =
             config.refresh_rate as usize + rng.gen_bool(config.refresh_rate % 1.0) as usize;
@@ -188,14 +195,45 @@ impl Node {
         Ok(())
     }
 
+    fn send_prunes<R: Rng>(
+        &mut self,
+        rng: &mut R,
+        origins: impl IntoIterator<Item = Pubkey>, // upserted origins
+        stakes: &HashMap<Pubkey, u64>,
+        router: &Router<Arc<Packet>>,
+    ) -> Result<(), Error> {
+        let prunes = origins
+            .into_iter()
+            .flat_map(|origin| {
+                self.received_cache
+                    .prune(
+                        &self.pubkey,
+                        origin,
+                        CRDS_GOSSIP_PRUNE_STAKE_THRESHOLD_PCT,
+                        CRDS_GOSSIP_PRUNE_MIN_INGRESS_NODES,
+                        stakes,
+                    )
+                    .zip(repeat(origin))
+            })
+            .into_group_map();
+        for (node, origins) in prunes {
+            let packet = Packet::Prune {
+                from: self.pubkey,
+                origins,
+            };
+            router.send(rng, &node, Arc::new(packet))?;
+        }
+        Ok(())
+    }
+
     /// Drains the channel for incoming packets and updates crds table.
     pub fn consume_packets(
         &mut self,
     ) -> (
-        HashSet<CrdsKey>,
-        usize, // num packets
-        usize, // num outdated
-        usize, // num duplicates
+        HashSet<CrdsKey>, // upserted keys
+        usize,            // num packets
+        usize,            // num outdated
+        usize,            // num duplicates
     ) {
         let packets: Vec<_> = self.receiver.try_iter().collect();
         // Insert new messages into the CRDS table.
