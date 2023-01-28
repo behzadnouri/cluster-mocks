@@ -63,6 +63,7 @@ pub struct CrdsEntry {
 
 #[derive(Clone, Copy)]
 pub struct Packet {
+    from: Pubkey,
     key: CrdsKey,
     ordinal: u64,
 }
@@ -131,6 +132,7 @@ impl Node {
         peers.shuffle(rng);
         for key in keys {
             let packet = Packet {
+                from: self.pubkey,
                 key,
                 ordinal: self.table[&key].ordinal,
             };
@@ -181,7 +183,7 @@ impl Node {
         let mut keys = HashSet::<CrdsKey>::new();
         let num_packets = packets.len();
         let mut num_outdated = 0;
-        for Packet { key, ordinal } in packets {
+        for Packet { from, key, ordinal } in packets {
             match self.table.entry(key) {
                 Entry::Occupied(mut entry) => {
                     let entry = entry.get_mut();
