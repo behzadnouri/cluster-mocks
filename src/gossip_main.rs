@@ -12,7 +12,7 @@ use {
     std::{
         cmp::Reverse,
         collections::HashMap,
-        sync::{RwLock, TryLockError},
+        sync::{Arc, RwLock, TryLockError},
         time::{Duration, Instant},
     },
 };
@@ -21,7 +21,7 @@ fn run_gossip(
     config: &Config,
     nodes: &[RwLock<Node>],
     stakes: &HashMap<Pubkey, /*stake:*/ u64>,
-    router: &Router<Packet>,
+    router: &Router<Arc<Packet>>,
 ) -> Result<(), Error> {
     let mut rng = rand::thread_rng();
     let now = Instant::now();

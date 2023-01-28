@@ -15,6 +15,7 @@ use {
         collections::{hash_map::Entry, HashMap, HashSet},
         iter::repeat_with,
         str::FromStr,
+        sync::Arc,
         time::{Duration, Instant},
     },
 };
@@ -29,7 +30,7 @@ pub struct Node {
     stake: u64,
     table: HashMap<CrdsKey, CrdsEntry>,
     received_cache: ReceivedCache,
-    receiver: Receiver<Packet>,
+    receiver: Receiver<Arc<Packet>>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -61,11 +62,17 @@ pub struct CrdsEntry {
     num_dups: u8,
 }
 
-#[derive(Clone, Copy)]
-pub struct Packet {
-    from: Pubkey,
-    key: CrdsKey,
-    ordinal: u64,
+#[derive(Clone)]
+pub enum Packet {
+    Push {
+        from: Pubkey,
+        key: CrdsKey,
+        ordinal: u64,
+    },
+    Prune {
+        from: Pubkey,
+        origins: Vec<Pubkey>,
+    },
 }
 
 enum UpsertError {
@@ -98,7 +105,7 @@ impl Node {
         rng: &mut R,
         config: &Config,
         stakes: &HashMap<Pubkey, u64>,
-        router: &Router<Packet>,
+        router: &Router<Arc<Packet>>,
     ) -> Result<(), Error> {
         let elapsed = self.clock.elapsed();
         self.clock = Instant::now();
@@ -136,11 +143,11 @@ impl Node {
             .collect();
         peers.shuffle(rng);
         for key in keys {
-            let packet = Packet {
+            let packet = Arc::new(Packet::Push {
                 from: self.pubkey,
                 key,
                 ordinal: self.table[&key].ordinal,
-            };
+            });
             let gossip_push_fanout = if key.origin == self.pubkey {
                 config.gossip_push_wide_fanout
             } else {
@@ -150,7 +157,7 @@ impl Node {
                 gossip_push_fanout as usize + rng.gen_bool(gossip_push_fanout % 1.0) as usize;
             for node in peers.iter().take(gossip_push_fanout) {
                 assert_ne!(node, &self.pubkey);
-                router.send(rng, node, packet)?;
+                router.send(rng, node, packet.clone())?;
             }
         }
         if rng.gen_ratio(1, 1000) {
@@ -196,29 +203,37 @@ impl Node {
         let num_packets = packets.len();
         let mut num_outdated = 0;
         let mut num_duplicates = 0;
-        for Packet { from, key, ordinal } in packets {
-            match self.upsert(from, key, ordinal) {
-                Ok(()) => {
-                    self.received_cache
-                        .record(key.origin, from, /*num_dups:*/ 0);
-                    keys.insert(key);
+        for packet in packets {
+            match *packet {
+                Packet::Push { from, key, ordinal } => {
+                    match self.upsert(key, ordinal) {
+                        Ok(()) => {
+                            self.received_cache
+                                .record(key.origin, from, /*num_dups:*/ 0);
+                            keys.insert(key);
+                        }
+                        Err(UpsertError::Outdated) => {
+                            self.received_cache.record(
+                                key.origin,
+                                from,
+                                usize::MAX, // num_dups
+                            );
+                            num_outdated += 1;
+                        }
+                        Err(UpsertError::Duplicate(num_dups)) => {
+                            self.received_cache
+                                .record(key.origin, from, usize::from(num_dups));
+                            num_duplicates += 1;
+                        }
+                    }
                 }
-                Err(UpsertError::Outdated) => {
-                    self.received_cache
-                        .record(key.origin, from, /*num_dups:*/ usize::MAX);
-                    num_outdated += 1;
-                }
-                Err(UpsertError::Duplicate(num_dups)) => {
-                    self.received_cache
-                        .record(key.origin, from, usize::from(num_dups));
-                    num_duplicates += 1;
-                }
+                Packet::Prune { .. } => todo!(),
             }
         }
         (keys, num_packets, num_outdated, num_duplicates)
     }
 
-    fn upsert(&mut self, from: Pubkey, key: CrdsKey, ordinal: u64) -> Result<(), UpsertError> {
+    fn upsert(&mut self, key: CrdsKey, ordinal: u64) -> Result<(), UpsertError> {
         match self.table.entry(key) {
             Entry::Occupied(mut entry) => {
                 let entry = entry.get_mut();
@@ -254,7 +269,9 @@ impl CrdsEntry {
     }
 }
 
-pub fn make_gossip_cluster(rpc_client: &RpcClient) -> Result<Vec<(Node, Sender<Packet>)>, Error> {
+pub fn make_gossip_cluster(
+    rpc_client: &RpcClient,
+) -> Result<Vec<(Node, Sender<Arc<Packet>>)>, Error> {
     let config = RpcGetVoteAccountsConfig {
         vote_pubkey: None,
         commitment: Some(CommitmentConfig::finalized()),
