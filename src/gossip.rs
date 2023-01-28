@@ -1,5 +1,5 @@
 use {
-    crate::{Error, Router, received_cache::ReceivedCache},
+    crate::{received_cache::ReceivedCache, Error, Router},
     crossbeam_channel::{Receiver, Sender},
     itertools::Itertools,
     log::{error, info, trace},
@@ -19,6 +19,8 @@ use {
     },
 };
 
+const CRDS_UNIQUE_PUBKEY_CAPACITY: usize = 8192;
+
 #[derive(Debug)]
 pub struct Node {
     clock: Instant,
@@ -26,6 +28,7 @@ pub struct Node {
     pubkey: Pubkey,
     stake: u64,
     table: HashMap<CrdsKey, /*ordinal:*/ u64>,
+    received_cache: ReceivedCache,
     receiver: Receiver<Packet>,
 }
 
@@ -238,6 +241,7 @@ pub fn make_gossip_cluster(rpc_client: &RpcClient) -> Result<Vec<(Node, Sender<P
                 stake,
                 pubkey,
                 table: HashMap::default(),
+                received_cache: ReceivedCache::new(2 * CRDS_UNIQUE_PUBKEY_CAPACITY),
                 receiver,
             };
             Ok((node, sender))
