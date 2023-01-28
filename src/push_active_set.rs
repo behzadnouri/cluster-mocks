@@ -1,8 +1,8 @@
 use {
-    solana_gossip::weighted_shuffle::WeightedShuffle,
     indexmap::IndexMap,
     rand::Rng,
     solana_bloom::bloom::{AtomicBloom, Bloom},
+    solana_gossip::weighted_shuffle::WeightedShuffle,
     solana_sdk::{native_token::LAMPORTS_PER_SOL, pubkey::Pubkey},
     std::collections::HashMap,
 };

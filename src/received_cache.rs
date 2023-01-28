@@ -7,10 +7,9 @@ use {
 
 // For each origin, tracks which nodes have sent messages from that origin and
 // their respective score in terms of timeliness of delivered messages.
-#[derive(Debug)]
 pub(crate) struct ReceivedCache(LruCache</*origin/owner:*/ Pubkey, ReceivedCacheEntry>);
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Default)]
 struct ReceivedCacheEntry {
     nodes: HashMap<Pubkey, /*score:*/ usize>,
     num_upserts: usize,

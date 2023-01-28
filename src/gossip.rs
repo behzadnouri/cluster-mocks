@@ -1,5 +1,5 @@
 use {
-    crate::{received_cache::ReceivedCache, Error, Router},
+    crate::{push_active_set::PushActiveSet, received_cache::ReceivedCache, Error, Router},
     crossbeam_channel::{Receiver, Sender},
     itertools::Itertools,
     log::{error, info, trace},
@@ -24,13 +24,13 @@ const CRDS_UNIQUE_PUBKEY_CAPACITY: usize = 8192;
 const CRDS_GOSSIP_PRUNE_MIN_INGRESS_NODES: usize = 3;
 const CRDS_GOSSIP_PRUNE_STAKE_THRESHOLD_PCT: f64 = 0.15;
 
-#[derive(Debug)]
 pub struct Node {
     clock: Instant,
     num_gossip_rounds: usize,
     pubkey: Pubkey,
     stake: u64,
     table: HashMap<CrdsKey, CrdsEntry>,
+    active_set: PushActiveSet,
     received_cache: ReceivedCache,
     receiver: Receiver<Arc<Packet>>,
 }
@@ -362,6 +362,7 @@ pub fn make_gossip_cluster(
                 stake,
                 pubkey,
                 table: HashMap::default(),
+                active_set: PushActiveSet::default(),
                 received_cache: ReceivedCache::new(2 * CRDS_UNIQUE_PUBKEY_CAPACITY),
                 receiver,
             };

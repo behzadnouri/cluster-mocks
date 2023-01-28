@@ -11,8 +11,8 @@ pub const API_MAINNET_BETA: &str = "https://api.mainnet-beta.solana.com";
 pub const API_TESTNET: &str = "https://api.testnet.solana.com";
 
 pub mod gossip;
-mod received_cache;
 mod push_active_set;
+mod received_cache;
 
 #[derive(Debug, Error)]
 pub enum Error {
