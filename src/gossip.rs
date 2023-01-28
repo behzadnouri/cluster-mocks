@@ -27,7 +27,7 @@ pub struct Node {
     num_gossip_rounds: usize,
     pubkey: Pubkey,
     stake: u64,
-    table: HashMap<CrdsKey, /*ordinal:*/ u64>,
+    table: HashMap<CrdsKey, CrdsEntry>,
     received_cache: ReceivedCache,
     receiver: Receiver<Packet>,
 }
@@ -55,6 +55,12 @@ pub struct CrdsKey {
     index: usize,
 }
 
+#[derive(Debug, Default)]
+pub struct CrdsEntry {
+    ordinal: u64,
+    num_dups: u8,
+}
+
 #[derive(Clone, Copy)]
 pub struct Packet {
     key: CrdsKey,
@@ -73,7 +79,7 @@ impl Node {
         self.pubkey
     }
 
-    pub fn table(&self) -> &HashMap<CrdsKey, /*ordinal:*/ u64> {
+    pub fn table(&self) -> &HashMap<CrdsKey, CrdsEntry> {
         &self.table
     }
 
@@ -102,12 +108,7 @@ impl Node {
                 origin: self.pubkey,
                 index,
             };
-            let ordinal = self
-                .table
-                .get(&key)
-                .map(|ordinal| ordinal + 1)
-                .unwrap_or_default();
-            self.table.insert(key, ordinal);
+            self.table.entry(key).or_default().ordinal += 1;
             keys.insert(key);
         }
         // Sort updated keys by origin's stake.
@@ -131,7 +132,7 @@ impl Node {
         for key in keys {
             let packet = Packet {
                 key,
-                ordinal: self.table[&key],
+                ordinal: self.table[&key].ordinal,
             };
             let gossip_push_fanout = if key.origin == self.pubkey {
                 config.gossip_push_wide_fanout
@@ -183,20 +184,31 @@ impl Node {
         for Packet { key, ordinal } in packets {
             match self.table.entry(key) {
                 Entry::Occupied(mut entry) => {
-                    if entry.get() < &ordinal {
-                        entry.insert(ordinal);
+                    let entry = entry.get_mut();
+                    if entry.ordinal < ordinal {
+                        entry.ordinal = ordinal;
                         keys.insert(key);
                     } else {
+                        entry.num_dups = entry.num_dups.saturating_add(1u8);
                         num_outdated += 1;
                     }
                 }
                 Entry::Vacant(entry) => {
-                    entry.insert(ordinal);
+                    entry.insert(CrdsEntry {
+                        ordinal,
+                        num_dups: 0u8,
+                    });
                     keys.insert(key);
                 }
             }
         }
         (keys, num_packets, num_outdated)
+    }
+}
+
+impl CrdsEntry {
+    pub fn ordinal(&self) -> u64 {
+        self.ordinal
     }
 }
 
@@ -268,9 +280,9 @@ where
 {
     let mut out = HashMap::<CrdsKey, /*ordinal:*/ u64>::new();
     for node in nodes {
-        for (key, ordinal) in node.borrow().table() {
-            let entry = out.entry(*key).or_default();
-            *entry = u64::max(*entry, *ordinal);
+        for (key, entry) in node.borrow().table() {
+            let ordinal = out.entry(*key).or_default();
+            *ordinal = u64::max(*ordinal, entry.ordinal);
         }
     }
     out

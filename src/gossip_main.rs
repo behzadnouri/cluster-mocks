@@ -1,7 +1,7 @@
 use {
     clap::{crate_description, crate_name, App, Arg},
     cluster_mocks::{
-        gossip::{get_crds_table, make_gossip_cluster, Config, Node, Packet},
+        gossip::{get_crds_table, make_gossip_cluster, Config, CrdsEntry, Node, Packet},
         Error, Router, API_MAINNET_BETA,
     },
     log::info,
@@ -191,7 +191,7 @@ fn main() {
         let node_table = node.table();
         let num_hits = table
             .iter()
-            .filter(|(key, ordinal)| node_table.get(key) == Some(ordinal))
+            .filter(|(key, ordinal)| node_table.get(key).map(CrdsEntry::ordinal) == Some(**ordinal))
             .count();
         println!(
             "{} | {:.2}% | {:6} | {:7} | {:2}%",
