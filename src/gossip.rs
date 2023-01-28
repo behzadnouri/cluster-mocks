@@ -189,9 +189,13 @@ impl Node {
                     let entry = entry.get_mut();
                     if entry.ordinal < ordinal {
                         entry.ordinal = ordinal;
+                        self.received_cache
+                            .record(key.origin, from, /*num_dups:*/ 0);
                         keys.insert(key);
                     } else {
                         entry.num_dups = entry.num_dups.saturating_add(1u8);
+                        self.received_cache
+                            .record(key.origin, from, usize::from(entry.num_dups));
                         num_outdated += 1;
                     }
                 }
@@ -200,6 +204,8 @@ impl Node {
                         ordinal,
                         num_dups: 0u8,
                     });
+                    self.received_cache
+                        .record(key.origin, from, /*num_dups:*/ 0);
                     keys.insert(key);
                 }
             }
