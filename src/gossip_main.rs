@@ -70,7 +70,7 @@ fn main() {
             Arg::with_name("gossip_push_fanout")
                 .long("gossip-push-fanout")
                 .takes_value(true)
-                .default_value("5")
+                .default_value("6")
                 .help("gossip push fanout"),
         )
         .arg(
@@ -85,6 +85,13 @@ fn main() {
                 .takes_value(true)
                 .default_value("35")
                 .help("Number of gossip rounds between push active set rotations"),
+        )
+        .arg(
+            Arg::with_name("gossip_prune_min_ingress_nodes")
+                .long("gossip-prune-min-ingress-nodes")
+                .takes_value(true)
+                .default_value("3")
+                .help("Min ingress number of nodes to keep when pruning received-cache"),
         )
         .arg(
             Arg::with_name("gossip_push_capacity")
@@ -135,6 +142,8 @@ fn main() {
                 .value_of_t("gossip_push_wide_fanout")
                 .unwrap_or(gossip_push_fanout),
             rotate_active_set_rounds: matches.value_of_t_or_exit("rotate_active_set_rounds"),
+            gossip_prune_min_ingress_nodes: matches
+                .value_of_t_or_exit("gossip_prune_min_ingress_nodes"),
             gossip_push_capacity: matches.value_of_t_or_exit("gossip_push_capacity"),
             packet_drop_rate: matches.value_of_t_or_exit("packet_drop_rate"),
             num_crds,

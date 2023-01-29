@@ -21,7 +21,6 @@ use {
 };
 
 const CRDS_UNIQUE_PUBKEY_CAPACITY: usize = 8192;
-const CRDS_GOSSIP_PRUNE_MIN_INGRESS_NODES: usize = 3;
 const CRDS_GOSSIP_PRUNE_STAKE_THRESHOLD_PCT: f64 = 0.15;
 
 pub struct Node {
@@ -41,6 +40,8 @@ pub struct Config {
     pub gossip_push_wide_fanout: f64,
     // Number of gossip rounds between push active set rotations.
     pub rotate_active_set_rounds: usize,
+    // Min ingress number of nodes to keep when pruning received-cache.
+    pub gossip_prune_min_ingress_nodes: usize,
     // TODO: wide fanout
     // TODO: Maximum number of packets to push in each gossip round.
     pub gossip_push_capacity: usize,
@@ -123,7 +124,7 @@ impl Node {
         // Send prune messages for upserted origins.
         {
             let origins = keys.iter().map(|key| key.origin);
-            self.send_prunes(rng, origins, stakes, router)?;
+            self.send_prunes(rng, origins, config, stakes, router)?;
         }
         // Refresh own gossip entries!
         keys.extend(self.refresh_entries(rng, config));
@@ -193,6 +194,7 @@ impl Node {
         &mut self,
         rng: &mut R,
         origins: impl IntoIterator<Item = Pubkey>, // upserted origins
+        config: &Config,
         stakes: &HashMap<Pubkey, u64>,
         router: &Router<Arc<Packet>>,
     ) -> Result<(), Error> {
@@ -204,7 +206,7 @@ impl Node {
                         &self.pubkey,
                         origin,
                         CRDS_GOSSIP_PRUNE_STAKE_THRESHOLD_PCT,
-                        CRDS_GOSSIP_PRUNE_MIN_INGRESS_NODES,
+                        config.gossip_prune_min_ingress_nodes,
                         stakes,
                     )
                     .zip(repeat(origin))
