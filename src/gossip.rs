@@ -80,6 +80,15 @@ pub enum Packet {
     },
 }
 
+#[derive(Default)]
+pub struct ConsumeOutput {
+    keys: HashSet<CrdsKey>, // upserted keys
+    num_packets: usize,
+    num_prunes: usize,
+    num_outdated: usize,
+    num_duplicates: usize,
+}
+
 enum UpsertError {
     Outdated,
     Duplicate(/*num_dups:*/ u8),
@@ -120,7 +129,13 @@ impl Node {
         }
         // Drain the channel for incomming packets.
         // Insert new messages into the CRDS table.
-        let (mut keys, num_packets, num_outdated, num_duplicates) = self.consume_packets(stakes);
+        let ConsumeOutput {
+            mut keys,
+            num_packets,
+            num_prunes,
+            num_outdated,
+            num_duplicates,
+        } = self.consume_packets(stakes);
         // Send prune messages for upserted origins.
         {
             let origins = keys.iter().map(|key| key.origin);
@@ -162,27 +177,27 @@ impl Node {
                 router.send(rng, node, packet.clone())?;
             }
         }
+        let get_ratio = |num| {
+            if num_packets == num_prunes {
+                0.0
+            } else {
+                num as f64 * 100.0 / (num_packets - num_prunes) as f64
+            }
+        };
         if rng.gen_ratio(1, 1000) {
             trace!(
-                "{}, {:?}: {}ms, round: {}, packets: {}, \
+                "{}, {:?}: {}ms, round: {}, packets: {}, prunes: {},\
                 outdated: {}, {:.0}%, duplicates: {}, {:.0}%, keys: {}, {}ms",
                 &format!("{}", self.pubkey)[..8],
                 std::thread::current().id(),
                 elapsed.as_millis(),
                 self.num_gossip_rounds,
                 num_packets,
+                num_prunes,
                 num_outdated,
-                if num_packets == 0 {
-                    0.0
-                } else {
-                    num_outdated as f64 * 100.0 / num_packets as f64
-                },
+                get_ratio(num_outdated),
                 num_duplicates,
-                if num_packets == 0 {
-                    0.0
-                } else {
-                    num_duplicates as f64 * 100.0 / num_packets as f64
-                },
+                get_ratio(num_duplicates),
                 num_keys,
                 self.clock.elapsed().as_millis(),
             );
@@ -243,21 +258,13 @@ impl Node {
     }
 
     /// Drains the channel for incoming packets and updates crds table.
-    pub fn consume_packets(
-        &mut self,
-        stakes: &HashMap<Pubkey, u64>,
-    ) -> (
-        HashSet<CrdsKey>, // upserted keys
-        usize,            // num packets
-        usize,            // num outdated
-        usize,            // num duplicates
-    ) {
+    pub fn consume_packets(&mut self, stakes: &HashMap<Pubkey, u64>) -> ConsumeOutput {
         let packets: Vec<_> = self.receiver.try_iter().collect();
         // Insert new messages into the CRDS table.
-        let mut keys = HashSet::<CrdsKey>::new();
-        let num_packets = packets.len();
-        let mut num_outdated = 0;
-        let mut num_duplicates = 0;
+        let mut out = ConsumeOutput {
+            num_packets: packets.len(),
+            ..ConsumeOutput::default()
+        };
         for packet in packets {
             match *packet {
                 Packet::Push { from, key, ordinal } => {
@@ -265,7 +272,7 @@ impl Node {
                         Ok(()) => {
                             self.received_cache
                                 .record(key.origin, from, /*num_dups:*/ 0);
-                            keys.insert(key);
+                            out.keys.insert(key);
                         }
                         Err(UpsertError::Outdated) => {
                             self.received_cache.record(
@@ -273,12 +280,12 @@ impl Node {
                                 from,
                                 usize::MAX, // num_dups
                             );
-                            num_outdated += 1;
+                            out.num_outdated += 1;
                         }
                         Err(UpsertError::Duplicate(num_dups)) => {
                             self.received_cache
                                 .record(key.origin, from, usize::from(num_dups));
-                            num_duplicates += 1;
+                            out.num_duplicates += 1;
                         }
                     }
                 }
@@ -286,11 +293,12 @@ impl Node {
                     ref from,
                     ref origins,
                 } => {
+                    out.num_prunes += 1;
                     self.active_set.prune(&self.pubkey, from, origins, stakes);
                 }
             }
         }
-        (keys, num_packets, num_outdated, num_duplicates)
+        out
     }
 
     fn upsert(&mut self, key: CrdsKey, ordinal: u64) -> Result<(), UpsertError> {
