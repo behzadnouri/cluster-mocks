@@ -20,7 +20,7 @@ use {
     },
 };
 
-const CRDS_UNIQUE_PUBKEY_CAPACITY: usize = 8192;
+pub(crate) const CRDS_UNIQUE_PUBKEY_CAPACITY: usize = 8192;
 const CRDS_GOSSIP_PRUNE_STAKE_THRESHOLD_PCT: f64 = 0.15;
 
 pub struct Node {
