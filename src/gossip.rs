@@ -334,6 +334,7 @@ impl Node {
             .keys()
             .copied()
             .chain(self.table.keys().map(|key| key.origin))
+            .filter(|pubkey| pubkey != &self.pubkey)
             .collect::<HashSet<_>>()
             .into_iter()
             .collect();
