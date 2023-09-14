@@ -186,7 +186,7 @@ impl Node {
         };
         if rng.gen_ratio(1, 1000) {
             trace!(
-                "{}, {:?}: {}ms, round: {}, packets: {}, prunes: {},\
+                "{}, {:?}: {}ms, round: {}, packets: {}, prunes: {}, \
                 outdated: {}, {:.0}%, duplicates: {}, {:.0}%, keys: {}, {}ms",
                 &format!("{}", self.pubkey)[..8],
                 std::thread::current().id(),
